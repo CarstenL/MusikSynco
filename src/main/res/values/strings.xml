@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Musik Synchronisation</string>
+    <string name="BTN_edit">Konfiguration bearbeiten</string>
+    <string name="BTN_startSync">Synchronisation starten</string>
+    <string name="LBL_actualFile">Kopiere Datei: </string>
+    <string name="LBL_remainingFiles">Verbleibene Dateien: </string>
+    <string name="LBL_remainingFileSize">Verbleibene Dateimenge: </string>
+
+    <!--Config-->
+    <string name="LBL_SourceTitle">Quellordner</string>
+    <string name="LBL_SourceText">Quellordner der .mp3-Dateien auf Ihrem Computer/Laptop</string>
+    <string name="LBL_TargetTitle">Zielordner</string>
+    <string name="LBL_TargetText">Zielordner der .mp3-Dateien auf Ihrem Smarthphone</string>
+    <string name="LBL_SSIDTitle">Netzwerk-SSID</string>
+    <string name="LBL_SSIDText">Die Netzwerk-SSID von ihrem Heim-Netzwerk</string>
+    <string name="LBL_UserNameTitle">Windows Benutzername</string>
+    <string name="LBL_UserNameText">Benutzername zur Authentifizierung an Ihrem Computer/Laptop</string>
+    <string name="LBL_PasswortTitle">Passwort</string>
+    <string name="LBL_PasswortText">Passwort zur Authentifizierung an Ihrem Computer/Laptop</string>
+    <string name="BTN_saveConfig">Konfiguration speichern</string>
+    <string name="BTN_cancel">Abbrechen</string>
+    <string name="BTN_search">...</string>
+
+</resources>
