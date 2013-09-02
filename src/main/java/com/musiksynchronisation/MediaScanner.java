@@ -5,22 +5,26 @@ import android.content.Context;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 
-import java.io.File;
+import java.util.ArrayList;
+
+import jcifs.smb.SmbFile;
 
 public class MediaScanner implements MediaScannerConnection.MediaScannerConnectionClient {
 
     private MediaScannerConnection mediaScannerConnection;
-    private File dir;
+    private ArrayList<SmbFile> files;
 
-    public MediaScanner(Context context, String path) {
-        dir = new File(path);
+    public MediaScanner(Context context, ArrayList<SmbFile> copiedFiles) {
+        files = copiedFiles;
         mediaScannerConnection = new MediaScannerConnection(context, this);
         mediaScannerConnection.connect();
     }
 
     @Override
     public void onMediaScannerConnected() {
-        mediaScannerConnection.scanFile(dir.getAbsolutePath(), null);
+        for (SmbFile file : files) {
+            mediaScannerConnection.scanFile(file.getPath(), null);
+        }
     }
 
     @Override

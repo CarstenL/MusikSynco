@@ -17,6 +17,12 @@ import java.util.ArrayList;
 
 import jcifs.smb.SmbFile;
 
+
+/**
+ * TODO
+ * Notification implementieren mit ner Progressbar
+ * Hilfe Seite hinzufügen mit Screenshots zu den Einstellungen unter Windows
+ */
 public class GUI extends Activity {
 
     public ProgressDialog progressbar;
@@ -94,14 +100,14 @@ public class GUI extends Activity {
                 PCfiles = helper.checkAvailableSpace(loadedPreferences[1], PCfiles);
             }
 
-            new AsyncTask<Object, String, Context>() {
+            new AsyncTask<Object, String, Object[]>() {
                 @Override
-                protected Context doInBackground(Object[] objects) {
+                protected Object[] doInBackground(Object[] objects) {
                     for (SmbFile smbFile : (ArrayList<SmbFile>) objects[0]) {
                         onProgressUpdate("Übertrage Datei: " + smbFile.getName());
                         ((Samba) objects[1]).copyFiles(smbFile);
                     }
-                    return (Context) objects[2];
+                    return new Object[]{objects[2], objects[0]};
                 }
 
                 protected void onProgressUpdate(String text) {
@@ -109,11 +115,11 @@ public class GUI extends Activity {
                 }
 
                 @Override
-                protected void onPostExecute(Context context) {
-                    super.onPostExecute(context);
+                protected void onPostExecute(Object[] objects) {
+                    super.onPostExecute(objects);
                     //start Mediascan
                     onProgressUpdate("Medienscanner wird im Hintergrund ausgeführt.\nSynchronisation wurde beendet.");
-                    new MediaScanner(context, loadedPreferences[1]);
+                    new MediaScanner((Context) objects[0], (ArrayList<SmbFile>) objects[1]);
 
                     enableTouchEvent();
                 }
