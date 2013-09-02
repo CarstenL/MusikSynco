@@ -14,11 +14,12 @@ import jcifs.smb.SmbFile;
 public class Helper {
 
     private static Context context;
-    public Helper(Context _context){
+
+    public Helper(Context _context) {
         context = _context;
     }
 
-    public boolean checkWiFiConnection(String configSSID){
+    public boolean checkWiFiConnection(String configSSID) {
         WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
         if (wifiInfo.getSSID().contains(configSSID))
@@ -30,9 +31,9 @@ public class Helper {
     /**
      * check the available space at the target path
      */
-    public ArrayList<SmbFile> checkAvailableSpace(String targetPath, ArrayList<SmbFile> files){
+    public ArrayList<SmbFile> checkAvailableSpace(String targetPath, ArrayList<SmbFile> files) {
         int filespace = 0;
-        for(SmbFile file: files)
+        for (SmbFile file : files)
             //Speichermenge in Byte
             try {
                 filespace += file.length();
@@ -49,20 +50,20 @@ public class Helper {
         //availableSpace = availableSpace / 1024 / 1024;
 
         //filespace lower than the available space --> return all files
-        if(filespace < availableSpace)
+        if (filespace < availableSpace)
             return files;
-        else{
-        //remove one random file and check again
+        else {
+            //remove one random file and check again
             files.remove(getRandomNumber(files.size()));
             checkAvailableSpace(targetPath, files);
         }
-        return  null;
+        return null;
     }
 
     /**
      * get a random number between 0 and the counted files
      */
-    private int getRandomNumber(int countFiles){
+    private int getRandomNumber(int countFiles) {
         Random random = new Random();
         return random.nextInt(countFiles);
     }
