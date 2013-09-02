@@ -1,6 +1,8 @@
 package com.musiksynchronisation;
 
-import android.net.wifi.ScanResult;
+import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -11,11 +13,15 @@ import jcifs.smb.SmbFile;
 
 public class Helper {
 
-    public Helper(){}
+    private static Context context;
+    public Helper(Context _context){
+        context = _context;
+    }
 
     public boolean checkWiFiConnection(String configSSID){
-        ScanResult scanResult = new ScanResult();
-        if (configSSID == scanResult.SSID)
+        WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        if (wifiInfo.getSSID().contains(configSSID))
             return true;
         else
             return false;
