@@ -1,48 +1,36 @@
 package com.musiksynchronisation;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.TextView;
-import android.widget.Toast;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import jcifs.smb.SmbFile;
 
 public class GUI extends Activity {
 
-    TextView LBL_actualFile;
-    TextView LBL_remainingFile;
-    TextView LBL_remainingFileSize;
-
-    TextView TXT_source;
-    TextView TXT_target;
-    TextView TXT_ssid;
-    TextView TXT_username;
-    TextView TXT_password;
-
-    private String choosenTargetDir = "";
-    private boolean m_newFolderEnabled = true;
+    public ProgressDialog progressbar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        //Labels leeren
-        clearLabels();
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.menubar, menu);
         //set icon for the edit button
         Drawable icon = getResources().getDrawable(R.drawable.ic_action_edit);
         menu.getItem(0).setIcon(icon);
@@ -52,111 +40,107 @@ public class GUI extends Activity {
     /**
      * show the config gui
      */
-    public boolean editConfig(MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
-            setContentView(R.layout.activity_config);
-            Settings settings = new Settings(this);
-            String loadedSettings[] = settings.LoadPreferences();
-            TXT_source = (TextView) findViewById(R.id.TXT_SourcePath);
-            TXT_target = (TextView) findViewById(R.id.TXT_TargetPath);
-            TXT_ssid = (TextView) findViewById(R.id.TXT_SSID);
-            TXT_username = (TextView) findViewById(R.id.TXT_Username);
-            TXT_password = (TextView) findViewById(R.id.TXT_Passwort);
-            TXT_source.setText(loadedSettings[0]);
-            TXT_target.setText(loadedSettings[1]);
-            TXT_ssid.setText(loadedSettings[2]);
-            TXT_username.setText(loadedSettings[3]);
-            TXT_password.setText(loadedSettings[4]);
-        }
-        return true;
-    }
-
-    /**
-     * button event to save the config
-     */
-    public void saveConfig(View v) {
-        Settings settings = new Settings(this);
-        settings.writePreferences(TXT_source.getText().toString(), TXT_target.getText().toString(), TXT_ssid.getText().toString(), TXT_username.getText().toString(), TXT_password.getText().toString());
-
-        Toast.makeText(this, "Konfiguration wurde gespeichert", Toast.LENGTH_LONG).show();
-        setContentView(R.layout.activity_main);
-        clearLabels();
-    }
-
-    /**
-     * creates a popup with a warning message
-     */
-    public void cancelConfig(View v){
-        AlertDialog alertBuilder = new AlertDialog.Builder(this).setTitle("Beim Fortfahren gehen Änderungen verloren. Fortfahren?").setPositiveButton("Ja", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                setContentView(R.layout.activity_main);
-            }
-        }).setNegativeButton("Nein", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-            }
-        }).show();
+    public void editConfig(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings)
+            startActivity(new Intent(GUI.this, Settings.class));
     }
 
     /**
      * button event to start the synchronisation
      */
     public void startSync(View v) {
-        //load settings
-        Settings settings = new Settings(this);
-        String[] loadedPreferences = settings.LoadPreferences();
+        try {
+            //Dialog anzeigen
+            progressbar = new ProgressDialog(this);
+            progressbar.setCanceledOnTouchOutside(false);
+            setProgressbarMessage("Starte Synchronisation");
+            progressbar.show();
 
-        Helper helper = new Helper();
-        //connected with home-network?
-        if (helper.checkWiFiConnection(loadedPreferences[2])){
-            //connect to shared folder and copy files to target path
+            //load settings
+            Settings settings = new Settings(this);
+            final String[] loadedPreferences = settings.LoadPreferences();
+
+            final Helper helper = new Helper(GUI.this);
+            setProgressbarMessage("Überprüfe WLAN");
+
             Samba samba = new Samba(this, loadedPreferences[0], loadedPreferences[1], loadedPreferences[3], loadedPreferences[4]);
-            ArrayList<SmbFile> files = samba.getFiles();
-            samba.deleteFiles();
+            ArrayList<SmbFile> PCfiles = new ArrayList<SmbFile>();
 
-            files = helper.checkAvailableSpace(loadedPreferences[1], files);
+            //connected with home-network?
+            if (helper.checkWiFiConnection(loadedPreferences[2])) {
+                //connect to shared folder and copy files to target path
+                setProgressbarMessage("Ermittle Dateien vom PC");
+                PCfiles = samba.getPCFiles();
+                if (PCfiles == null) {
+                    setProgressbarMessage("Keine Dateien vom Quellpfad ermittelt.\nSynchronisation wurde beendet");
+                    enableTouchEvent();
+                    return;
+                }
+                //get local files
+                setProgressbarMessage("Ermittle lokale Dateien");
+                File[] localFiles = samba.getLocalFiles();
 
-            samba.copyFiles(files);
+                //get new files
+                setProgressbarMessage("Ermittle neue Dateien");
+                PCfiles = samba.checkExistingFiles(PCfiles, localFiles);
+                if (PCfiles == null) {
+                    setProgressbarMessage("Keine neuen Dateien ermittelt.\nSynchronisation wurde beendet");
+                    enableTouchEvent();
+                    return;
+                }
 
-            LBL_actualFile.setText(R.string.LBL_actualFile);
-            LBL_remainingFile.setText(R.string.LBL_remainingFiles);
-            LBL_remainingFileSize.setText(R.string.LBL_remainingFileSize);
+                //check available space on target path
+                setProgressbarMessage("Überprüfe freien Speicherplatz");
+                PCfiles = helper.checkAvailableSpace(loadedPreferences[1], PCfiles);
+            }
+
+            new AsyncTask<Object, String, Context>() {
+                @Override
+                protected Context doInBackground(Object[] objects) {
+                    for (SmbFile smbFile : (ArrayList<SmbFile>) objects[0]) {
+                        onProgressUpdate("Übertrage Datei: " + smbFile.getName());
+                        ((Samba) objects[1]).copyFiles(smbFile);
+                    }
+                    return (Context) objects[2];
+                }
+
+                protected void onProgressUpdate(String text) {
+                    setProgressbarMessage(text);
+                }
+
+                @Override
+                protected void onPostExecute(Context context) {
+                    super.onPostExecute(context);
+                    //start Mediascan
+                    onProgressUpdate("Medienscanner wird im Hintergrund ausgeführt.\nSynchronisation wurde beendet.");
+                    new MediaScanner(context, loadedPreferences[1]);
+
+                    enableTouchEvent();
+                }
+            }.execute(PCfiles, samba, this);
+        } catch (Exception ex) {
+            progressbar.setMessage(ex.getMessage());
+            enableTouchEvent();
         }
     }
 
-    /**
-     * clear all Labels on the Main GUI
-     */
-    private void clearLabels() {
-        LBL_actualFile = (TextView) findViewById(R.id.LBL_actualFile);
-        LBL_actualFile.setText("");
-
-        LBL_remainingFile = (TextView) findViewById(R.id.LBL_remainingFiles);
-        LBL_remainingFile.setText("");
-
-        LBL_remainingFileSize = (TextView) findViewById(R.id.LBL_remainingFileSize);
-        LBL_remainingFileSize.setText("");
+    public void setProgressbarMessage(String text) {
+        progressbar.setMessage(text);
     }
 
-    /**
-     * button event to choose the target directory
-     */
-    public void chooseTargetDir(View v) {
-        ChooseTargetDirectoryDialog chooseTargetDirectoryDialog = new ChooseTargetDirectoryDialog(GUI.this, TXT_target.getText().toString(),  new ChooseTargetDirectoryDialog.ChosenDirectoryListener() {
+    private void enableTouchEvent() {
+        progressbar.setCanceledOnTouchOutside(true);
+
+        new View.OnTouchListener() {
             @Override
-            public void onChosenDir(String chosenDir) {
-                choosenTargetDir = chosenDir;
-                Toast.makeText(GUI.this, "gewählter Ordner: " + chosenDir, Toast.LENGTH_LONG).show();
-                TXT_target.setText(chosenDir);
-            }
-        });
-        // Toggle new folder button enabling
-        chooseTargetDirectoryDialog.setNewFolderEnabled(true);
-        // Load directory chooser dialog for initial 'm_chosenDir' directory.
-        // The registered callback will be called upon final directory selection.
-        chooseTargetDirectoryDialog.chooseDirectory(choosenTargetDir);
-        m_newFolderEnabled = ! m_newFolderEnabled;
-    }
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                int eventaction = motionEvent.getAction();
 
+                if (eventaction == MotionEvent.ACTION_DOWN)
+                    progressbar.cancel();
+
+                return true;
+            }
+        };
+    }
 }
