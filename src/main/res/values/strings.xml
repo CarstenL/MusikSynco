@@ -2,7 +2,7 @@
 <resources>
 
     <string name="app_name">Musik Synchronisation</string>
-    <string name="BTN_edit">Konfiguration bearbeiten</string>
+    <string name="config">Konfiguration</string>
     <string name="BTN_startSync">Synchronisation starten</string>
     <string name="LBL_actualFile">Kopiere Datei: </string>
     <string name="LBL_remainingFiles">Verbleibene Dateien: </string>
