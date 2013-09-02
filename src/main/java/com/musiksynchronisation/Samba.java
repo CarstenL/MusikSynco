@@ -2,15 +2,17 @@ package com.musiksynchronisation;
 
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.os.AsyncTask;
-import android.widget.ProgressBar;
-import android.widget.TextView;
+import android.os.StrictMode;
 import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,142 +25,100 @@ public class Samba {
 
     private SmbFile smbFile;
     private String target;
-    private SmbFile[] files;
-    private ProgressBar prgBar;
-    private TextView LBL_actualFile;
-    private TextView LBL_remainingFiles;
-    private TextView LBL_remainingFilesSize;
-    private int zaehler = 0;
-    private double fileSize = 0;
-    private GUI gui;
+    private Context context;
 
-    public Samba(GUI _gui, String sourcePath, String targetPath, String username, String password){
+
+    public Samba(Context _context, String sourcePath, String targetPath, String username, String password) {
         try {
             NtlmPasswordAuthentication auth = new NtlmPasswordAuthentication("", username, password);
-            smbFile = new SmbFile("smb://" + sourcePath, auth);
-            target = targetPath;
-            gui = _gui;
-            LBL_actualFile = (TextView)gui.findViewById(R.id.LBL_actualFile);
-            LBL_remainingFiles = (TextView)gui.findViewById(R.id.LBL_remainingFiles);
-            LBL_remainingFilesSize = (TextView)gui.findViewById(R.id.LBL_remainingFileSize);
-            prgBar = (ProgressBar)gui.findViewById(R.id.progressBar);
 
+            //stellt sicher, dass es mit // beginnt
+            if (sourcePath.startsWith("//"))
+                sourcePath = sourcePath.substring(2);
+
+            //stellt sicher, dass es mit / endet
+            if (!sourcePath.endsWith("/"))
+                sourcePath += "/";
+
+            smbFile = new SmbFile("smb://" + sourcePath, auth);
+
+            target = targetPath;
+            context = _context;
         } catch (MalformedURLException e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception ex) {
+            Toast.makeText(context, ex.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
     /**
      * get files in source path
      */
-    public ArrayList<SmbFile> getFiles(){
+    public ArrayList<SmbFile> getPCFiles() {
+        ArrayList<SmbFile> arrFiles = new ArrayList<SmbFile>();
         try {
-            if (smbFile.exists()){
-                files = smbFile.listFiles("*.mp3");
-                ArrayList<SmbFile> arrFiles = new ArrayList<SmbFile>();
+            StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.LAX);
+            if (smbFile.exists()) {
+                SmbFile[] files = smbFile.listFiles("*.mp3");
+                arrFiles = new ArrayList<SmbFile>();
                 Collections.addAll(arrFiles, files);
-                return arrFiles;
-            }
+            } else
+                Toast.makeText(context, "Quellpfad kann nicht ermittelt werden", Toast.LENGTH_LONG).show();
         } catch (SmbException e) {
-            e.printStackTrace();
+            Toast.makeText(context, "Fehler beim Ermitteln der Dateien", Toast.LENGTH_LONG).show();
+        } catch (Exception ex) {
+            Toast.makeText(context, ex.getMessage(), Toast.LENGTH_LONG).show();
         }
-        return null;
+        return arrFiles;
     }
 
-    /**
-     * delete .mp3 files in target path
-     */
-    public void deleteFiles(){
-        try{
-            File dir = new File(target);
-            //check if target is a directoy
-            if (dir.isDirectory()){
-                //get all mp3-files in target directory
-                File[] targetFiles = dir.listFiles(new FileFilter() {
-                    @Override
-                    public boolean accept(File file) {
-                        if (file.getName().contains(".mp3"))
-                            return true;
-                        else
-                            return false;
-                    }
-                });
+    public File[] getLocalFiles() {
+        File dir = new File(target);
+        return dir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                return file.getName().contains(".mp3");
+            }
+        });
+    }
 
-                //delete file
-                for(File file : targetFiles)
-                {
-                    file.delete();
-                    LBL_actualFile.setText("Lösche Datei " + file.getName());
+    public ArrayList<SmbFile> checkExistingFiles(ArrayList<SmbFile> PCfiles, File[] localFiles) {
+        ArrayList<SmbFile> toCopyFiles = new ArrayList<SmbFile>();
+        for (SmbFile PCfile : PCfiles) {
+            boolean vorhanden = false;
+            for (File lFile : localFiles) {
+                if (PCfile.getName().contains(lFile.getName())) {
+                    vorhanden = true;
+                    break;
                 }
             }
-            else{
-                Toast.makeText(gui, "Zielpfad ist kein Ordner", Toast.LENGTH_LONG);
-            }
+            if (!vorhanden)
+                toCopyFiles.add(PCfile);
+
         }
-        catch (Exception ex){
-            new AlertDialog.Builder(gui).setTitle("Fehler beim Löschen der Dateien").setNeutralButton("Ok", new DialogInterface.OnClickListener() {
+        return toCopyFiles;
+    }
+
+    public void copyFiles(final SmbFile file) {
+        try {
+            InputStream inputStream = file.getInputStream();
+            File localFilePath = new File(target + "/" + file.getName());
+            OutputStream out = new FileOutputStream(localFilePath);
+            byte buf[] = new byte[1024];
+            int len;
+            while ((len = inputStream.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            out.flush();
+            out.close();
+            inputStream.close();
+        } catch (Exception e) {
+            new AlertDialog.Builder(context).setTitle("Fehler beim Kopieren der Dateien").setNeutralButton("Ok", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
+                    return;
                 }
             }).show();
         }
-    }
-
-    public void copyFiles(ArrayList<SmbFile> arrFiles){
-        try {
-            for(SmbFile file: arrFiles)
-                fileSize += file.length();
-        } catch (SmbException e) {
-                e.printStackTrace();
-        }
-
-        new AsyncTask() {
-            @Override
-            protected  void onPreExecute(){
-                prgBar.setMax(files.length);
-                super.onPreExecute();
-            }
-            @Override
-            protected void onCancelled(){
-                prgBar.setMax(0);
-            }
-            @Override
-            protected Object doInBackground(Object[] objects) {
-                zaehler = 0;
-                try {
-                    for (SmbFile file : files){
-                        file.copyTo(new SmbFile(target));
-                        onProgressUpdate(file);
-                    }
-                } catch (Exception e) {
-                    new AlertDialog.Builder(gui).setTitle("Fehler beim Kopieren der Dateien").setNeutralButton("Ok", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            cancel(true);
-                        }
-                    }).show();
-                }
-                return null;
-            }
-
-            protected void onProgressUpdate(final SmbFile file){
-                prgBar.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        try{
-                            prgBar.setProgress(prgBar.getProgress() + 1);
-                            LBL_actualFile.setText("Kopiere Datei: " + file.getName());
-                            LBL_remainingFiles.setText("Verbleibene Dateien: " + (files.length - zaehler));
-                            LBL_remainingFilesSize.setText("Verbleibende Dateimenge: " + (fileSize - file.length()));
-                        }
-                        catch (Exception ex){
-                            Toast.makeText(gui, "Fehler beim Progress-Update", Toast.LENGTH_LONG).show();
-                        }
-                    }
-                });
-            }
-        }.execute();
     }
 }
