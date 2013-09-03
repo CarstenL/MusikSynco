@@ -1,34 +1,38 @@
 package com.musiksynchronisation;
 
 
+import android.content.ContentValues;
 import android.content.Context;
-import android.media.MediaScannerConnection;
-import android.net.Uri;
+import android.content.Intent;
+import android.provider.MediaStore;
+import android.webkit.MimeTypeMap;
 
-import java.util.ArrayList;
+import java.io.File;
 
-import jcifs.smb.SmbFile;
+public class MediaScanner {
 
-public class MediaScanner implements MediaScannerConnection.MediaScannerConnectionClient {
+    private File file;
+    private Context mContext;
 
-    private MediaScannerConnection mediaScannerConnection;
-    private ArrayList<SmbFile> files;
-
-    public MediaScanner(Context context, ArrayList<SmbFile> copiedFiles) {
-        files = copiedFiles;
-        mediaScannerConnection = new MediaScannerConnection(context, this);
-        mediaScannerConnection.connect();
+    public MediaScanner(Context context, File copiedfile) {
+        file = copiedfile;
+        mContext = context;
     }
 
-    @Override
-    public void onMediaScannerConnected() {
-        for (SmbFile file : files) {
-            mediaScannerConnection.scanFile(file.getPath(), null);
-        }
-    }
+    public void insertToMediaStore() {
 
-    @Override
-    public void onScanCompleted(String s, Uri uri) {
-        mediaScannerConnection.disconnect();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DATA, file.getAbsolutePath());
+        values.put(MediaStore.MediaColumns.TITLE, file.getName().split(" - ")[1].split(".mp3")[0]);
+        values.put(MediaStore.MediaColumns.MIME_TYPE, MimeTypeMap.getSingleton().getMimeTypeFromExtension("mp3"));
+        values.put(MediaStore.Audio.Media.ARTIST, file.getName().split(" - ")[0]);
+        values.put(MediaStore.Audio.Media.IS_RINGTONE, false);
+        values.put(MediaStore.Audio.Media.IS_NOTIFICATION, false);
+        values.put(MediaStore.Audio.Media.IS_ALARM, false);
+        values.put(MediaStore.Audio.Media.IS_MUSIC, true);
+
+        mContext.getContentResolver().insert(MediaStore.Audio.Media.getContentUriForPath(file.getAbsolutePath()), values);
+
+        mContext.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE), "file://" + file.getAbsolutePath());
     }
 }

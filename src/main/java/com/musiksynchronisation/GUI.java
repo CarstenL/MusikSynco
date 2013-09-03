@@ -2,7 +2,6 @@ package com.musiksynchronisation;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
@@ -22,6 +21,7 @@ import jcifs.smb.SmbFile;
  * TODO
  * Notification implementieren mit ner Progressbar
  * Hilfe Seite hinzufügen mit Screenshots zu den Einstellungen unter Windows
+ * Windows Passwort verschlüsselt in Konfig ablegen
  */
 public class GUI extends Activity {
 
@@ -82,6 +82,7 @@ public class GUI extends Activity {
                     enableTouchEvent();
                     return;
                 }
+
                 //get local files
                 setProgressbarMessage("Ermittle lokale Dateien");
                 File[] localFiles = samba.getLocalFiles();
@@ -103,11 +104,13 @@ public class GUI extends Activity {
             new AsyncTask<Object, String, Object[]>() {
                 @Override
                 protected Object[] doInBackground(Object[] objects) {
+                    SmbFile copiedFile = null;
                     for (SmbFile smbFile : (ArrayList<SmbFile>) objects[0]) {
                         onProgressUpdate("Übertrage Datei: " + smbFile.getName());
                         ((Samba) objects[1]).copyFiles(smbFile);
+                        copiedFile = smbFile;
                     }
-                    return new Object[]{objects[2], objects[0]};
+                    return new Object[]{objects[2], objects[0], copiedFile};
                 }
 
                 protected void onProgressUpdate(String text) {
@@ -118,9 +121,7 @@ public class GUI extends Activity {
                 protected void onPostExecute(Object[] objects) {
                     super.onPostExecute(objects);
                     //start Mediascan
-                    onProgressUpdate("Medienscanner wird im Hintergrund ausgeführt.\nSynchronisation wurde beendet.");
-                    new MediaScanner((Context) objects[0], (ArrayList<SmbFile>) objects[1]);
-
+                    onProgressUpdate("Synchronisation wurde beendet.");
                     enableTouchEvent();
                 }
             }.execute(PCfiles, samba, this);
@@ -131,7 +132,11 @@ public class GUI extends Activity {
     }
 
     public void setProgressbarMessage(String text) {
-        progressbar.setMessage(text);
+        try {
+            progressbar.setMessage(text);
+        } catch (Exception ex) {
+            ex.getStackTrace();
+        }
     }
 
     private void enableTouchEvent() {

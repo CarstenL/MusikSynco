@@ -4,7 +4,6 @@ package com.musiksynchronisation;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.os.AsyncTask;
 import android.os.StrictMode;
 import android.widget.Toast;
 
@@ -112,6 +111,8 @@ public class Samba {
             out.flush();
             out.close();
             inputStream.close();
+            MediaScanner mediaScanner = new MediaScanner(context, localFilePath);
+            mediaScanner.insertToMediaStore();
         } catch (Exception e) {
             new AlertDialog.Builder(context).setTitle("Fehler beim Kopieren der Dateien").setNeutralButton("Ok", new DialogInterface.OnClickListener() {
                 @Override
